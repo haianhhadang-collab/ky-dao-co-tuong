@@ -127,6 +127,9 @@ async function onlineTests() {
     const res = await fetch('http://127.0.0.1:' + PORT + '/');
     ok(res.status === 200 && (await res.text()).includes('Kỳ Đạo'), 'phục vụ trang web tĩnh');
     ok((await fetch('http://127.0.0.1:' + PORT + '/../server.js')).status !== 200, 'chặn truy cập ngoài thư mục public');
+    const hz = await fetch('http://127.0.0.1:' + PORT + '/healthz');
+    ok(hz.status === 200 && (await hz.text()) === 'ok', '/healthz trả về ok');
+    ok(/frame-ancestors 'none'/.test(res.headers.get('content-security-policy') || ''), 'có header bảo mật (CSP)');
 
     const alice = await user(url, 'alice'), bob = await user(url, 'bob'), carol = await user(url, 'carol'), dave = await user(url, 'dave');
     ok(true, 'đăng ký 4 tài khoản');
@@ -239,6 +242,14 @@ async function onlineTests() {
     const back = alice2.wait('room', m => m.room.id === MA.room.id && m.room.game.status === 'playing');
     alice2.send({ t: 'hello', token: alice.token });
     ok(!!(await back), 'kết nối lại vẫn quay về đúng ván đang chơi');
+
+    // Sai mật khẩu liên tục bị chặn tạm (đặt cuối vì chặn theo IP)
+    const brute = new Client(url);
+    await brute.opened;
+    for (let i = 0; i < 10; i++) await brute.req({ t: 'login', name: 'alice', password: 'sai' + i }, 'auth_err');
+    const locked = await brute.req({ t: 'login', name: 'alice', password: 'matkhau' }, 'auth_err');
+    ok(locked.msg.includes('quá nhiều'), 'sai mật khẩu 10 lần thì bị chặn tạm');
+    brute.close();
     alice2.close(); bob.close(); carol.close(); dave.close();
   } finally {
     srv.kill();

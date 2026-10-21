@@ -14,6 +14,43 @@ Mở <http://localhost:3000>. Máy khác cùng mạng LAN mở địa chỉ `htt
 - Dữ liệu tài khoản, điểm, lịch sử ván nằm ở `data/db.json` (tự tạo). Xóa file này để làm lại từ đầu.
 - Kiểm thử: `npm test` (bộ luật + mô phỏng nhiều người chơi trực tuyến, cần Node ≥ 22).
 
+## Chơi qua Internet
+
+Có 3 cách, chọn theo nhu cầu:
+
+| Cách | Chi phí | Đường link | Dữ liệu (tài khoản, điểm) | Phù hợp |
+|------|---------|-----------|---------------------------|---------|
+| **A. Cloudflare Tunnel từ máy bạn** | Miễn phí, không cần tài khoản | Đổi mỗi lần chạy, chỉ sống khi máy bật | Giữ nguyên trên máy bạn | Chơi nhanh với bạn bè, thử nghiệm |
+| **B. Render – gói Free** | Miễn phí | Cố định `…onrender.com` | **Mất mỗi khi server ngủ (15 phút không ai chơi) hoặc cập nhật** | Demo |
+| **C. Render – gói Starter + ổ đĩa / VPS** | Trả phí hằng tháng | Cố định | Giữ lâu dài | Chạy thật, có xếp hạng |
+
+**A. Cloudflare Tunnel** (cần cài [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)) – mở 2 cửa sổ dòng lệnh:
+
+```bash
+node server.js
+```
+
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+
+Gửi đường link `https://….trycloudflare.com` mà cloudflared in ra cho bạn bè. Tắt một trong hai cửa sổ là dừng.
+
+**B/C. Render** – đăng nhập [render.com](https://render.com) bằng GitHub rồi mở
+<https://render.com/deploy?repo=https://github.com/haianhhadang-collab/ky-dao-co-tuong> → **Apply**. Cấu hình nằm trong `render.yaml` (mặc định gói Free, máy chủ Singapore). Để giữ dữ liệu, đổi `plan: starter` và bỏ dấu `#` ở khối `disk` + biến `DATA_FILE` trong file đó.
+
+**VPS / Docker:**
+
+```bash
+docker build -t kydao .
+```
+
+```bash
+docker run -d -p 3000:3000 -v kydao-data:/data --restart unless-stopped kydao
+```
+
+Server đứng sau proxy (Render, Cloudflare, Nginx) vẫn nhận đúng IP người chơi để giới hạn spam đăng ký / đăng nhập sai; đường `/healthz` dùng để kiểm tra server còn sống.
+
 ## Tính năng
 
 | # | Chế độ | Mô tả |
@@ -61,6 +98,6 @@ test/run-tests.js      Kiểm thử tự động
 
 ## Ghi chú
 
-- Mật khẩu được băm bằng `scrypt` có muối; phiên đăng nhập lưu bằng token ngẫu nhiên.
-- Đây là máy chủ đơn tiến trình, phù hợp chơi trong nhà, lớp học, câu lạc bộ hoặc một VPS nhỏ. Khi đưa ra Internet nên đặt sau HTTPS (ví dụ reverse proxy Nginx/Caddy); giao diện tự dùng `wss://` khi trang chạy trên HTTPS.
+- Mật khẩu được băm bằng `scrypt` có muối (bất đồng bộ); phiên đăng nhập lưu bằng token ngẫu nhiên. Mỗi IP tạo tối đa 20 tài khoản/giờ, sai mật khẩu quá 10 lần/10 phút sẽ bị chặn tạm, tối đa 30 kết nối cùng lúc (`MAX_CONN_PER_IP`).
+- Đây là máy chủ đơn tiến trình, phù hợp chơi trong nhà, lớp học, câu lạc bộ hoặc một VPS nhỏ. Khi đưa ra Internet nên chạy sau HTTPS (Render và Cloudflare Tunnel đã có sẵn); giao diện tự dùng `wss://` khi trang chạy trên HTTPS.
 - Mở thẳng `public/index.html` (không chạy server) vẫn chơi được với máy và 2 người cùng máy; các tính năng trực tuyến cần server.

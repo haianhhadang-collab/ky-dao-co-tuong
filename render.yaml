@@ -1,0 +1,24 @@
+# Triển khai lên Render: https://render.com/deploy?repo=https://github.com/haianhhadang-collab/ky-dao-co-tuong
+#
+# Gói "free": miễn phí nhưng server ngủ sau 15 phút không có người chơi (lần vào sau chờ ~1 phút)
+# và MẤT toàn bộ tài khoản / điểm / lịch sử mỗi lần ngủ hoặc cập nhật.
+# Muốn giữ dữ liệu: đổi plan thành "starter" (trả phí) và bỏ dấu # ở khối "disk" cùng biến DATA_FILE bên dưới.
+services:
+  - type: web
+    name: ky-dao-co-tuong
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: echo "Không cần cài thư viện"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # - key: DATA_FILE
+      #   value: /var/data/db.json
+    # disk:
+    #   name: kydao-data
+    #   mountPath: /var/data
+    #   sizeGB: 1

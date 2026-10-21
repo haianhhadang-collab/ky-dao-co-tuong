@@ -24,21 +24,45 @@ const MIME = {
 
 const store = new Store(DATA_FILE);
 const hub = new Hub(store);
+const MAX_CONN_PER_IP = Number(process.env.MAX_CONN_PER_IP) || 30;
+const connPerIp = new Map();
+
+/** IP thật của người chơi. Chỉ tin header của proxy (Render, Cloudflare Tunnel…) khi kết nối đến từ mạng nội bộ. */
+function clientIp(req) {
+  const direct = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+  const internal = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd])/i.test(direct);
+  if (internal) {
+    const fwd = req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0];
+    if (fwd && String(fwd).trim()) return String(fwd).trim();
+  }
+  return direct || '?';
+}
+
+function securityHeaders(req) {
+  const host = String(req.headers.host || '').replace(/[^\w.:[\]-]/g, '');
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+      "connect-src 'self'" + (host ? ' ws://' + host + ' wss://' + host : '') + "; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+  };
+}
 
 const server = http.createServer((req, res) => {
   let urlPath;
   try { urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch (e) { res.writeHead(400); return res.end(); }
+  if (urlPath === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
   if (urlPath === '/') urlPath = '/index.html';
   const file = path.normalize(path.join(PUBLIC_DIR, urlPath));
   if (!file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); return res.end(); }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không tìm thấy'); }
-    res.writeHead(200, {
+    res.writeHead(200, Object.assign({
       'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
       'Content-Length': st.size,
-      'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff'
-    });
+      'Cache-Control': 'no-cache'
+    }, securityHeaders(req)));
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   });
@@ -46,7 +70,17 @@ const server = http.createServer((req, res) => {
 
 server.on('upgrade', (req, socket, head) => {
   if (!req.url.startsWith('/ws')) return socket.destroy();
-  handleUpgrade(req, socket, head, conn => hub.attach(conn));
+  const ip = clientIp(req);
+  const n = connPerIp.get(ip) || 0;
+  if (n >= MAX_CONN_PER_IP) { socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n'); return; }
+  connPerIp.set(ip, n + 1);
+  handleUpgrade(req, socket, head, conn => {
+    conn.on('close', () => {
+      const left = (connPerIp.get(ip) || 1) - 1;
+      if (left > 0) connPerIp.set(ip, left); else connPerIp.delete(ip);
+    });
+    hub.attach(conn, ip);
+  });
 });
 
 server.listen(PORT, HOST, () => {

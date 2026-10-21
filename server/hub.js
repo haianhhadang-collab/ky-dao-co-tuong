@@ -33,6 +33,7 @@ class Hub {
     this.queue = new Map();      // key -> { key, variant, since }
     this.challenges = new Map(); // id -> challenge
     this.timers = new Map();     // key -> timeout
+    this.limits = new Map();     // giới hạn tần suất theo IP
     this.roomSeq = 1;
     this.roomsDirty = true;
     this.lastRoomsPush = 0;
@@ -40,6 +41,7 @@ class Hub {
     setInterval(() => this.tick(), 250);
     setInterval(() => this.matchmake(), 1000);
     setInterval(() => this.heartbeat(), 25000);
+    setInterval(() => this.pruneLimits(), 600000);
   }
 
   normalizeUser(u) {
@@ -49,7 +51,8 @@ class Hub {
   }
 
   // ───────────────────────── Kết nối ─────────────────────────
-  attach(conn) {
+  attach(conn, ip) {
+    conn.ip = ip || '?';
     conn.user = null;
     conn.watchRooms = false;
     conn.rate = { t: Date.now(), n: 0 };
@@ -77,9 +80,35 @@ class Hub {
     const fn = this['h_' + msg.t];
     if (typeof fn !== 'function') return;
     if (!PUBLIC.has(msg.t) && !conn.user) return this.err(conn, 'Bạn cần đăng nhập để dùng tính năng trực tuyến', 'login');
-    try { fn.call(this, conn, msg); } catch (e) {
-      console.error('Lỗi xử lý', msg.t, e);
-      this.err(conn, 'Lỗi máy chủ');
+    const fail = e => { console.error('Lỗi xử lý', msg.t, e); this.err(conn, 'Lỗi máy chủ'); };
+    try {
+      const r = fn.call(this, conn, msg);
+      if (r && typeof r.catch === 'function') r.catch(fail);
+    } catch (e) { fail(e); }
+  }
+
+  /** Giới hạn tần suất: còn được làm thêm không (tối đa max lần trong ms mili-giây). */
+  allow(bucket, key, max, ms) {
+    const m = this.limits.get(bucket);
+    const arr = m && m.get(key);
+    if (!arr) return true;
+    const now = Date.now();
+    return arr.filter(t => now - t < ms).length < max;
+  }
+  record(bucket, key) {
+    let m = this.limits.get(bucket);
+    if (!m) this.limits.set(bucket, (m = new Map()));
+    const arr = m.get(key) || [];
+    arr.push(Date.now());
+    m.set(key, arr);
+  }
+  pruneLimits() {
+    const now = Date.now();
+    for (const m of this.limits.values()) {
+      for (const [k, arr] of m) {
+        const keep = arr.filter(t => now - t < 3600000);
+        if (keep.length) m.set(k, keep); else m.delete(k);
+      }
     }
   }
 
@@ -135,7 +164,12 @@ class Hub {
     return { online: this.online.size, rooms: this.rooms.size, playing, queue: q, users: Object.keys(this.db.users).length };
   }
 
-  hashPassword(password, salt) { return crypto.scryptSync(String(password), salt, 32).toString('hex'); }
+  /** Băm mật khẩu bất đồng bộ (không chặn server khi nhiều người đăng nhập). */
+  hashPassword(password, salt) {
+    return new Promise((resolve, reject) => {
+      crypto.scrypt(String(password), salt, 32, (e, k) => (e ? reject(e) : resolve(k.toString('hex'))));
+    });
+  }
 
   newToken(key) {
     const token = crypto.randomBytes(24).toString('hex');
@@ -151,28 +185,35 @@ class Hub {
     else this.send(conn, { t: 'guest' });
   }
 
-  h_register(conn, m) {
+  async h_register(conn, m) {
     const name = clean(m.name, 20);
     const password = String(m.password || '');
     if (name.length < 3 || !NAME_RE.test(name)) return this.send(conn, { t: 'auth_err', msg: 'Tên 3–20 ký tự, gồm chữ (có dấu), số, khoảng trắng, dấu _ hoặc .' });
     if (password.length < 4 || password.length > 100) return this.send(conn, { t: 'auth_err', msg: 'Mật khẩu cần ít nhất 4 ký tự' });
     const key = this.keyOf(name);
     if (this.db.users[key]) return this.send(conn, { t: 'auth_err', msg: 'Tên này đã có người dùng' });
+    if (!this.allow('register', conn.ip, 20, 3600000)) return this.send(conn, { t: 'auth_err', msg: 'Bạn đã tạo quá nhiều tài khoản, hãy thử lại sau' });
     const salt = crypto.randomBytes(16).toString('hex');
-    this.db.users[key] = this.normalizeUser({ name, salt, hash: this.hashPassword(password, salt), created: Date.now() });
+    const hash = await this.hashPassword(password, salt);
+    if (this.db.users[key]) return this.send(conn, { t: 'auth_err', msg: 'Tên này đã có người dùng' });
+    this.db.users[key] = this.normalizeUser({ name, salt, hash, created: Date.now() });
+    this.record('register', conn.ip);
     this.store.save();
-    this.bind(conn, key, this.newToken(key));
+    if (!conn.closed) this.bind(conn, key, this.newToken(key));
   }
 
-  h_login(conn, m) {
+  async h_login(conn, m) {
+    if (!this.allow('loginFail', conn.ip, 10, 600000)) return this.send(conn, { t: 'auth_err', msg: 'Đăng nhập sai quá nhiều lần, hãy thử lại sau 10 phút' });
     const key = this.keyOf(m.name);
     const u = this.user(key);
-    const fail = () => this.send(conn, { t: 'auth_err', msg: 'Sai tên đăng nhập hoặc mật khẩu' });
-    if (!u) return fail();
-    const a = Buffer.from(this.hashPassword(m.password || '', u.salt), 'hex');
-    const b = Buffer.from(u.hash, 'hex');
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return fail();
-    this.bind(conn, key, this.newToken(key));
+    // vẫn băm khi không có tài khoản để thời gian phản hồi như nhau
+    const a = Buffer.from(await this.hashPassword(String(m.password || '').slice(0, 100), u ? u.salt : 'khong-co'), 'hex');
+    const b = u ? Buffer.from(u.hash, 'hex') : Buffer.alloc(0);
+    if (!u || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      this.record('loginFail', conn.ip);
+      return this.send(conn, { t: 'auth_err', msg: 'Sai tên đăng nhập hoặc mật khẩu' });
+    }
+    if (!conn.closed) this.bind(conn, key, this.newToken(key));
   }
 
   h_logout(conn) {
