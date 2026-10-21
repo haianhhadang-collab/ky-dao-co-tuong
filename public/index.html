@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17120e">
+  <title>Kỳ Đạo – Cờ Tướng Online</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23f2dcb0' stroke='%23a7834c' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%23c0281e' stroke-width='3'/%3E%3Ctext x='32' y='43' font-size='30' text-anchor='middle' fill='%23c0281e' font-family='serif'%3E帥%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#home" aria-label="Kỳ Đạo – Trang chủ">
+      <span class="brand-logo">帥</span>
+      <span class="brand-text">Kỳ Đạo<small>Cờ Tướng Online</small></span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#home" data-view="home"><i>⌂</i><span>Trang chủ</span></a>
+      <a href="#rooms" data-view="rooms"><i>▦</i><span>Phòng chơi</span></a>
+      <a href="#friends" data-view="friends"><i>☺</i><span>Bạn bè</span><b class="badge" id="badge-friends" hidden></b></a>
+      <a href="#rank" data-view="rank"><i>♛</i><span>Xếp hạng</span></a>
+      <a href="#game" data-view="game" id="nav-game" hidden><i>◉</i><span>Bàn cờ</span></a>
+    </nav>
+    <div class="top-right">
+      <div class="queue-pill" id="queue-pill" hidden></div>
+      <span class="conn" id="conn" title="Đang kết nối máy chủ…"></span>
+      <div class="user-area" id="user-area"></div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ───────── Trang chủ ───────── -->
+    <section class="view" id="view-home">
+      <div class="hero">
+        <div class="hero-text">
+          <p class="eyebrow">象棋 · Cờ Tướng · Cờ Úp</p>
+          <h1>Bàn cờ của bạn,<br><span>luật chơi của bậc thầy.</span></h1>
+          <p class="lead">Đánh với máy, thách đấu bạn bè hoặc ghép trận ngẫu nhiên. Leo từ <b>Tập sự</b> lên <b>Kỳ vương</b> và săn danh hiệu tới <b>Kỳ tiên</b>.</p>
+          <div class="hero-stats" id="hero-stats"></div>
+        </div>
+        <div class="hero-card" id="hero-card"></div>
+      </div>
+
+      <div class="modes">
+        <article class="mode-card">
+          <div class="mode-icon red">帥</div>
+          <div class="mode-body">
+            <h3>Cờ tướng</h3>
+            <p>Luật chuẩn: chiếu bí, cấm lộ mặt tướng, cấm chiếu dai. Bốn cấp độ máy từ Dễ tới Đại sư.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="local" data-variant="thuong" data-vs="bot">Đấu với máy</button>
+              <button class="btn" data-act="local" data-variant="thuong" data-vs="human">2 người 1 máy</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon hidden-ico"></div>
+          <div class="mode-body">
+            <h3>Cờ úp</h3>
+            <p>15 quân mỗi bên úp ngẫu nhiên, đi theo vị trí rồi lật mặt. Sĩ, tượng đã lật được qua sông.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="local" data-variant="up" data-vs="bot">Đấu với máy</button>
+              <button class="btn" data-act="local" data-variant="up" data-vs="human">2 người 1 máy</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon gold">友</div>
+          <div class="mode-body">
+            <h3>Kết bạn</h3>
+            <p>Tìm người chơi theo tên, gửi lời mời kết bạn, xem ai đang trực tuyến hay đang chơi.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="go" data-to="friends">Tìm bạn bè</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon gold">戰</div>
+          <div class="mode-body">
+            <h3>Đấu bạn bè</h3>
+            <p>Thách đấu trực tiếp một người bạn, tự chọn loại cờ, thời gian và có tính điểm hay không.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="go" data-to="friends">Chọn bạn để thách đấu</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon black">將</div>
+          <div class="mode-body">
+            <h3>Đấu ngẫu nhiên</h3>
+            <p>Hệ thống ghép đối thủ cùng trình độ. Ván tính điểm, 10 phút + 5 giây mỗi nước.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="queue" data-variant="thuong">Cờ tướng</button>
+              <button class="btn primary" data-act="queue" data-variant="up">Cờ úp</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card">
+          <div class="mode-icon gold">榜</div>
+          <div class="mode-body">
+            <h3>Xếp hạng &amp; danh hiệu</h3>
+            <p>5 hạng × 5 sao: Tập sự, Phong trào, Kỳ thủ, Kiện tướng, Kỳ vương. Chuỗi thắng mở khóa danh hiệu.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="go" data-to="rank">Bảng xếp hạng</button>
+              <button class="btn" data-act="go" data-to="rank/titles">Bảng danh hiệu</button>
+            </div>
+          </div>
+        </article>
+        <article class="mode-card wide">
+          <div class="mode-icon gold">房</div>
+          <div class="mode-body">
+            <h3>Phòng chơi</h3>
+            <p>Tạo phòng riêng, nhiều phòng chơi cùng lúc. Mỗi phòng có 2 kỳ thủ, một trọng tài và không giới hạn người quan sát.</p>
+            <div class="mode-actions">
+              <button class="btn primary" data-act="create-room">Tạo phòng</button>
+              <button class="btn" data-act="go" data-to="rooms">Danh sách phòng</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────── Phòng chơi ───────── -->
+    <section class="view" id="view-rooms">
+      <div class="section-head">
+        <div>
+          <h2>Phòng chơi</h2>
+          <p class="muted" id="rooms-sub">Vào xem, ngồi vào ghế trống hoặc làm trọng tài.</p>
+        </div>
+        <button class="btn primary" data-act="create-room">+ Tạo phòng</button>
+      </div>
+      <div class="filters">
+        <div class="seg" id="room-filter">
+          <button class="active" data-f="all">Tất cả</button>
+          <button data-f="wait">Đang chờ</button>
+          <button data-f="play">Đang chơi</button>
+        </div>
+        <div class="seg" id="room-variant">
+          <button class="active" data-v="all">Mọi loại</button>
+          <button data-v="thuong">Cờ tướng</button>
+          <button data-v="up">Cờ úp</button>
+        </div>
+        <input class="input" id="room-search" placeholder="Tìm theo tên phòng / kỳ thủ…">
+      </div>
+      <div class="room-grid" id="room-list"></div>
+    </section>
+
+    <!-- ───────── Bạn bè ───────── -->
+    <section class="view" id="view-friends">
+      <div class="section-head">
+        <div>
+          <h2>Bạn bè</h2>
+          <p class="muted">Kết bạn, xem trạng thái và thách đấu.</p>
+        </div>
+      </div>
+      <div class="friends-layout">
+        <div class="panel">
+          <div class="panel-head"><h3>Danh sách bạn bè</h3><span class="muted" id="friend-count"></span></div>
+          <div id="friend-list" class="list"></div>
+        </div>
+        <div class="stack">
+          <div class="panel">
+            <div class="panel-head"><h3>Tìm người chơi</h3></div>
+            <input class="input" id="friend-search" placeholder="Nhập tên người chơi…" autocomplete="off">
+            <div id="search-results" class="list"></div>
+          </div>
+          <div class="panel" id="panel-challenges">
+            <div class="panel-head"><h3>Lời thách đấu</h3></div>
+            <div id="challenge-list" class="list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Lời mời kết bạn</h3></div>
+            <div id="friend-incoming" class="list"></div>
+            <div class="panel-head sub"><h4>Đã gửi</h4></div>
+            <div id="friend-outgoing" class="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── Xếp hạng ───────── -->
+    <section class="view" id="view-rank">
+      <div class="section-head">
+        <div>
+          <h2>Xếp hạng</h2>
+          <p class="muted">Điểm chỉ thay đổi ở ván tính điểm (đấu ngẫu nhiên, hoặc phòng / thách đấu có bật tính điểm).</p>
+        </div>
+        <div class="seg" id="rank-tabs">
+          <button data-tab="board" class="active">Bảng xếp hạng</button>
+          <button data-tab="tiers">Cấp bậc</button>
+          <button data-tab="titles">Danh hiệu</button>
+        </div>
+      </div>
+      <div id="rank-content"></div>
+    </section>
+
+    <!-- ───────── Hồ sơ ───────── -->
+    <section class="view" id="view-profile">
+      <div id="profile-content"></div>
+    </section>
+
+    <!-- ───────── Bàn cờ ───────── -->
+    <section class="view" id="view-game">
+      <div class="game-layout">
+        <div class="game-main">
+          <div class="game-status" id="game-status"></div>
+          <div class="player-bar" id="pb-top"></div>
+          <div class="board-holder">
+            <div id="board"></div>
+          </div>
+          <div class="player-bar" id="pb-bottom"></div>
+          <div class="prompt-bar" id="prompt-bar" hidden></div>
+          <div class="controls" id="controls"></div>
+        </div>
+        <aside class="game-side">
+          <div class="room-info" id="room-info"></div>
+          <div class="tabs" id="side-tabs">
+            <button data-tab="moves" class="active">Nước đi</button>
+            <button data-tab="chat">Trò chuyện <b class="badge" id="badge-chat" hidden></b></button>
+            <button data-tab="people">Phòng <b class="count" id="people-count"></b></button>
+          </div>
+          <div class="tab-panel active" data-panel="moves">
+            <ol class="moves" id="move-list"></ol>
+            <div id="pool-box"></div>
+          </div>
+          <div class="tab-panel" data-panel="chat">
+            <div class="chat-log" id="chat-log"></div>
+            <form class="chat-form" id="chat-form" autocomplete="off">
+              <input class="input" id="chat-input" maxlength="300" placeholder="Nhập tin nhắn…">
+              <button class="btn primary">Gửi</button>
+            </form>
+          </div>
+          <div class="tab-panel" data-panel="people">
+            <div id="people"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script src="shared/xiangqi.js"></script>
+  <script src="shared/ranks.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

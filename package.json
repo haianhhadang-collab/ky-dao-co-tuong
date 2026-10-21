@@ -1,0 +1,15 @@
+{
+  "name": "ky-dao-co-tuong",
+  "version": "1.0.0",
+  "description": "Web app Cờ Tướng & Cờ Úp: chơi với máy, bạn bè, ghép ngẫu nhiên, phòng chơi có người xem và trọng tài, xếp hạng và danh hiệu. Không phụ thuộc thư viện ngoài.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run-tests.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

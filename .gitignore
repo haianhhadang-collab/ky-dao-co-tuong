@@ -1,0 +1,6 @@
+data/
+node_modules/
+.claude/
+*.log
+# Nhật ký dự án cá nhân (tự động ghi)
+NHAT-KY.md
